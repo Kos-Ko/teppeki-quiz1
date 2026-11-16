@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鉄壁 文脈穴埋めテスト</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#fff; --ink:#1f2328; --sub:#5b6168; --line:#e3dfd6;
+    --accent:#1d4e89; --accent-weak:#e7eef8; --ok:#1f7a4d; --ok-weak:#e6f4ec;
+    --ng:#b42318; --ng-weak:#fdecea; --star:#c58a00;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#16181b; --card:#1f2226; --ink:#e8e6e1; --sub:#a3a8ae; --line:#33373d;
+      --accent:#7fb0ef; --accent-weak:#1f2d40; --ok:#5fcf95; --ok-weak:#17301f;
+      --ng:#f28b82; --ng-weak:#3a1c1a; --star:#e6b84a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;line-height:1.7}
+  main{max-width:760px;margin:0 auto;padding:20px 16px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  h1{font-size:1.35rem;margin:0;letter-spacing:.02em}
+  h2{font-size:1.1rem;margin:28px 0 10px}
+  .sub{color:var(--sub);font-size:.88rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 14px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  @media (prefers-color-scheme: dark){ button.primary{color:#0e1520} }
+  button:disabled{opacity:.45;cursor:default}
+  .opt:disabled{opacity:1}
+  .seg button{border-radius:0;margin-left:-1px}
+  .seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .seg button:last-child{border-radius:0 8px 8px 0}
+  .seg button.on{background:var(--accent-weak);border-color:var(--accent);color:var(--accent);font-weight:600;position:relative}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+  .sec{text-align:left;padding:10px 12px}
+  .sec b{display:block;font-size:.98rem}
+  .sec small{color:var(--sub);font-size:.76rem;display:block;line-height:1.4}
+  .bar{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .qhead{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+  .stars{color:var(--star);font-size:.85rem;letter-spacing:1px}
+  .inst{font-size:.92rem;color:var(--sub);margin:6px 0 10px}
+  .en{font-family:Georgia,"Times New Roman",serif;font-size:1.08rem;line-height:1.75;margin:0 0 12px}
+  .blank{display:inline-block;min-width:4.5em;border-bottom:2px solid var(--accent);text-align:center;color:var(--accent);font-family:inherit;font-weight:700}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media (max-width:480px){.opts{grid-template-columns:1fr}}
+  .opt{text-align:left;font-family:Georgia,serif;font-size:1rem;padding:10px 12px}
+  .opt .k{font-family:inherit;font-weight:700;color:var(--sub);margin-right:8px}
+  .opt.sel{border-color:var(--accent);background:var(--accent-weak)}
+  .opt.ok{border-color:var(--ok);background:var(--ok-weak)}
+  .opt.ng{border-color:var(--ng);background:var(--ng-weak)}
+  .exp{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px;font-size:.92rem}
+  .exp p{margin:4px 0}
+  .exp .lab{display:inline-block;min-width:5.5em;color:var(--sub);font-size:.82rem}
+  .verdict{font-weight:700}
+  .verdict.ok{color:var(--ok)} .verdict.ng{color:var(--ng)}
+  .score{font-size:2.2rem;font-weight:800;margin:0}
+  .marks{letter-spacing:2px;font-size:1.1rem}
+  .sticky{position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 35%)}
+  .notice{background:var(--accent-weak);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;margin:10px 0;font-size:.92rem}
+  a{color:var(--accent)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="questions.js"></script>
+<script>
+(() => {
+  "use strict";
+  const QS = Array.isArray(window.QUESTIONS) ? window.QUESTIONS : [];
+  const byId = Object.fromEntries(QS.map(q => [q.id, q]));
+  const sections = [...new Set(QS.map(q => q.section))].sort((a, b) => a - b);
+  const KEY = "teppeki-quiz-v1";
+  const app = document.getElementById("app");
+
+  // ---------- 保存（ブラウザごと。使えない環境でも動くようにする） ----------
+  const blank = () => ({ seen: {}, wrong: {}, hist: {}, mode: "batch", size: 10 });
+  let S = blank();
+  try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  // ---------- ユーティリティ ----------
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const rnd = n => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+  const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const secName = s => s === 0 ? "サンプル" : `Section ${s}`;
+  const stars = n => "★".repeat(n) + "☆".repeat(3 - n);
+  const enHTML = en => esc(en).replace(/\(\s*\)/, '<span class="blank">(&nbsp;&nbsp;&nbsp;)</span>');
+  const inSec = (q, secs) => secs === "all" || secs.includes(q.section);
+
+  // ---------- 状態 ----------
+  let quiz = null; // { label, secs, items:[{q, order:[idx...], pick:null|idx}], done, cur }
+
+  function start(secs, opts = {}) {
+    let pool;
+    if (opts.review) pool = QS.filter(q => S.wrong[q.id]);
+    else pool = QS.filter(q => inSec(q, secs) && !S.seen[q.id]);
+    if (!pool.length) return renderHome(opts.review ? "要復習の問題はありません。" :
+      `${secs === "all" ? "全範囲" : secs.map(secName).join("・")}の問題はすべて出題しました。下の「出題履歴をリセット」から、もう一周できます。`);
+    const items = shuffle(pool).slice(0, S.size).map(q => ({ q, order: shuffle([0, 1, 2, 3]), pick: null }));
+    const label = opts.review ? "復習" : secs === "all" ? "全範囲ランダム" : secs.map(secName).join("・");
+    quiz = { label, secs, review: !!opts.review, items, done: false, cur: 0 };
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function grade() {
+    quiz.done = true;
+    for (const it of quiz.items) record(it);
+    save();
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function record(it) {
+    if (it.recorded) return;
+    it.recorded = true;
+    const q = it.q, ok = it.pick === q.answer;
+    S.seen[q.id] = true;
+    if (ok) delete S.wrong[q.id]; else S.wrong[q.id] = true;
+    const h = S.hist[q.section] || (S.hist[q.section] = { n: 0, c: 0 });
+    h.n++; if (ok) h.c++;
+  }
+
+  // ---------- 画面：ホーム ----------
+  function renderHome(msg) {
+    quiz = null;
+    const wrongN = Object.keys(S.wrong).filter(id => byId[id]).length;
+    const total = QS.length, seenN = Object.keys(S.seen).filter(id => byId[id]).length;
+    app.innerHTML = `
+      <header><h1>鉄壁 文脈穴埋めテスト</h1><span class="sub">全${total}問・出題済み ${seenN}問</span></header>
+      ${msg ? `<div class="notice">${esc(msg)}</div>` : ""}
+      ${!QS.length ? `<div class="notice">questions.js に問題がありません。README の「問題を追加する」を見てください。</div>` : ""}
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="row seg" role="group" aria-label="出題モード">
+            <button data-mode="batch" class="${S.mode === "batch" ? "on" : ""}">まとめて解く</button>
+            <button data-mode="one" class="${S.mode === "one" ? "on" : ""}">1問ずつ</button>
+          </div>
+          <div class="row seg" role="group" aria-label="問題数">
+            ${[5, 10, 20].map(n => `<button data-size="${n}" class="${S.size === n ? "on" : ""}">${n}問</button>`).join("")}
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" data-all>全範囲からランダム</button>
+          <button data-review ${wrongN ? "" : "disabled"}>間違えた問題を復習（${wrongN}）</button>
+        </div>
+      </div>
+      <h2>セクションを選ぶ</h2>
+      <div class="grid">
+        ${sections.map(s => {
+          const all = QS.filter(q => q.section === s), seen = all.filter(q => S.seen[q.id]).length;
+          const h = S.hist[s];
+          return `<button class="sec" data-sec="${s}"><b>${secName(s)}</b>
+            <small>残り ${all.length - seen} / ${all.length}問</small>
+            <small>${h ? `正答率 ${Math.round(h.c / h.n * 100)}%` : "&nbsp;"}</small>
+            <div class="bar"><i style="width:${all.length ? seen / all.length * 100 : 0}%"></i></div></button>`;
+        }).join("")}
+      </div>
+      <h2>範囲をまとめて選ぶ</h2>
+      <div class="card row">
+        <label>Section <input id="from" type="number" min="${sections[0] ?? 1}" max="${sections.at(-1) ?? 50}" value="${sections.find(s => s > 0) ?? 1}" style="width:4.5em;font:inherit"></label>
+        <span>〜</span>
+        <input id="to" type="number" min="${sections[0] ?? 1}" max="${sections.at(-1) ?? 50}" value="${Math.min((sections.find(s => s > 0) ?? 1) + 4, sections.at(-1) ?? 50)}" style="width:4.5em;font:inherit">
+        <button data-range>この範囲から出題</button>
+      </div>
+      <h2>記録</h2>
+      <div class="card row">
+        <button data-reset-seen>出題履歴をリセット（もう一周する）</button>
+        <button data-reset-all>すべての記録を消す</button>
+        <span class="sub">記録はこのブラウザだけに保存されます。</span>
+      </div>`;
+    app.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.mode = b.dataset.mode; save(); renderHome(); });
+    app.querySelectorAll("[data-size]").forEach(b => b.onclick = () => { S.size = +b.dataset.size; save(); renderHome(); });
+    app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => start([+b.dataset.sec]));
+    app.querySelector("[data-all]").onclick = () => start("all");
+    app.querySelector("[data-review]").onclick = () => start("all", { review: true });
+    app.querySelector("[data-range]").onclick = () => {
+      let a = +document.getElementById("from").value, b = +document.getElementById("to").value;
+      if (a > b) [a, b] = [b, a];
+      start(sections.filter(s => s >= a && s <= b));
+    };
+    app.querySelector("[data-reset-seen]").onclick = () => { if (confirm("出題履歴をリセットします。正答率と復習リストは残ります。")) { S.seen = {}; save(); renderHome("出題履歴をリセットしました。"); } };
+    app.querySelector("[data-reset-all]").onclick = () => { if (confirm("出題履歴・正答率・復習リストをすべて消します。元に戻せません。")) { const m = S.mode, z = S.size; S = blank(); S.mode = m; S.size = z; save(); renderHome("すべての記録を消しました。"); } };
+  }
+
+  // ---------- 画面：問題 ----------
+  function qCard(it, i, reveal) {
+    const q = it.q, L = "ABCD";
+    const opts = it.order.map((oi, k) => {
+      let cls = "opt";
+      if (reveal) { if (oi === q.answer) cls += " ok"; else if (oi === it.pick) cls += " ng"; }
+      else if (oi === it.pick) cls += " sel";
+      return `<button class="${cls}" data-i="${i}" data-o="${oi}" ${reveal ? "disabled" : ""}><span class="k">${L[k]}.</span>${esc(q.options[oi])}</button>`;
+    }).join("");
+    let exp = "";
+    if (reveal) {
+      const ok = it.pick === q.answer, ansK = L[it.order.indexOf(q.answer)];
+      const yourK = it.pick == null ? "未回答" : L[it.order.indexOf(it.pick)];
+      const wrongs = it.order.filter(oi => oi !== q.answer).map(oi =>
+        `<p><span class="lab">${L[it.order.indexOf(oi)]}. ${esc(q.options[oi])}</span>${esc((q.wrong || {})[q.options[oi]] || "")}</p>`).join("");
+      exp = `<div class="exp">
+        <p class="verdict ${ok ? "ok" : "ng"}">${ok ? "◯ 正解" : "✕ 不正解"}　正解：${ansK}. ${esc(q.options[q.answer])}（あなた：${yourK}）</p>
+        ${q.core ? `<p><span class="lab">核イメージ</span>${esc(q.core)}</p>` : ""}
+        ${q.key ? `<p><span class="lab">決め手</span>${esc(q.key)}</p>` : ""}
+        ${wrongs}
+        ${q.usage ? `<p><span class="lab">語法メモ</span>${esc(q.usage)}</p>` : ""}
+      </div>`;
+    }
+    return `<div class="card" id="q${i}">
+      <div class="qhead"><span>第${i + 1}問</span><span class="stars" title="難易度">${stars(q.level || 2)}</span></div>
+      <p class="inst">${esc(q.instruction || `「${q.ja}」という意味になるよう、空欄に入る最も適切な語を選びなさい。`)}</p>
+      <p class="en" lang="en">${enHTML(q.en)}</p>
+      <div class="opts">${opts}</div>${exp}</div>`;
+  }
+
+  function render() {
+    if (!quiz) return renderHome();
+    const n = quiz.items.length;
+    if (S.mode === "one" && !quiz.done) return renderOne();
+    const answered = quiz.items.filter(it => it.pick != null).length;
+    let top = "";
+    if (quiz.done) {
+      const c = quiz.items.filter(it => it.pick === it.q.answer).length;
+      top = `<div class="card"><p class="sub">${esc(quiz.label)}｜結果</p>
+        <p class="score">${c} / ${n}</p>
+        <p class="marks">${quiz.items.map(it => it.pick === it.q.answer ? "◯" : "✕").join(" ")}</p></div>`;
+    }
+    app.innerHTML = `
+      <header><h1>${esc(quiz.label)}${quiz.done ? "｜解答・解説" : "｜問題（全" + n + "問）"}</h1>
+        <button data-home>セクション選択へ</button></header>
+      ${top}
+      ${quiz.items.map((it, i) => qCard(it, i, quiz.done)).join("")}
+      <div class="sticky row">${quiz.done ? nextButtons() :
+        `<button class="primary" data-grade>採点する（${answered}/${n}問回答済み）</button>`}</div>`;
+    bindCommon();
+    app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      quiz.items[+b.dataset.i].pick = +b.dataset.o; render();
+    });
+    const g = app.querySelector("[data-grade]");
+    if (g) g.onclick = () => {
+      if (answered < n && !confirm(`未回答が${n - answered}問あります。採点しますか？`)) return;
+      grade();
+    };
+  }
+
+  function renderOne() {
+    const it = quiz.items[quiz.cur], n = quiz.items.length, reveal = it.pick != null;
+    app.innerHTML = `
+      <header><h1>${esc(quiz.label)}｜${quiz.cur + 1} / ${n}</h1><button data-home>セクション選択へ</button></header>
+      <div class="bar" style="height:6px"><i style="width:${(quiz.cur + (reveal ? 1 : 0)) / n * 100}%"></i></div>
+      ${qCard(it, quiz.cur, reveal)}
+      <div class="sticky row">${reveal ? `<button class="primary" data-next>${quiz.cur + 1 < n ? "次の問題へ" : "結果を見る"}</button>` : ""}</div>`;
+    bindCommon();
+    app.querySelectorAll(".opt").forEach(b => b.onclick = () => { it.pick = +b.dataset.o; record(it); save(); renderOne(); });
+    const nx = app.querySelector("[data-next]");
+    if (nx) nx.onclick = () => {
+      if (quiz.cur + 1 < n) { quiz.cur++; renderOne(); window.scrollTo(0, 0); }
+      else { quiz.done = true; render(); window.scrollTo(0, 0); }
+    };
+  }
+
+  function nextButtons() {
+    const rest = quiz.review ? 0 : QS.filter(q => inSec(q, quiz.secs) && !S.seen[q.id]).length;
+    const wrongN = Object.keys(S.wrong).filter(id => byId[id]).length;
+    return `${!quiz.review ? (rest ? `<button class="primary" data-again>同じ範囲で次の${Math.min(S.size, rest)}問（残り${rest}問）</button>` : `<button disabled>この範囲は全問出題済み</button>`) : ""}
+      <button data-rev ${wrongN ? "" : "disabled"}>間違えた問題を復習（${wrongN}）</button>
+      <button data-home>別のセクションへ</button>`;
+  }
+
+  function bindCommon() {
+    app.querySelectorAll("[data-home]").forEach(b => b.onclick = () => { renderHome(); window.scrollTo(0, 0); });
+    const a = app.querySelector("[data-again]"); if (a) a.onclick = () => start(quiz.secs);
+    const r = app.querySelector("[data-rev]"); if (r) r.onclick = () => start("all", { review: true });
+  }
+
+  renderHome();
+})();
+</script>
+</body>
+</html>
